@@ -1,0 +1,239 @@
+# exp-scheduler
+
+`exp-scheduler` 是一个面向单用户实验服务器的 GPU 任务调度器。你把命令加入队列后，它会在检测到空闲 GPU 时自动启动任务，并通过一个只监听 `127.0.0.1` 的网页控制台提供增删改查、拖拽排序、取消任务、日志查看、环境模板复用，以及从现有 `conda` / `venv` 自动导入模板。
+
+## 目录
+- 入口脚本：`scripts/exp_scheduler.py`
+- 工具目录：`tools/exp-scheduler/`
+- 用户级 systemd 模板：`tools/exp-scheduler/deploy/exp-scheduler.service`
+
+## 依赖安装
+
+```bash
+cd /SSD1/ykw/my-tools
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r tools/exp-scheduler/requirements-dev.txt
+```
+
+如果你希望只装运行依赖：
+
+```bash
+pip install -r tools/exp-scheduler/requirements.txt
+```
+
+## 初始化
+
+初始化会创建默认配置、状态目录、日志目录和 SQLite 数据库。
+
+```bash
+./scripts/exp_scheduler.py init
+```
+
+默认配置文件路径：
+
+```text
+~/.config/exp-scheduler/config.toml
+```
+
+默认状态目录：
+
+```text
+~/.local/share/exp-scheduler
+```
+
+## 启动
+
+先检查环境：
+
+```bash
+./scripts/exp_scheduler.py doctor
+```
+
+启动服务：
+
+```bash
+./scripts/exp_scheduler.py serve
+```
+
+如果你已经执行过 `./install.sh`，也可以直接用：
+
+```bash
+exp-scheduler serve
+```
+
+## SSH 隧道访问
+
+服务默认只监听服务器本机回环地址：
+
+```text
+127.0.0.1:17861
+```
+
+在本机执行：
+
+```bash
+ssh -L 17861:127.0.0.1:17861 <server>
+```
+
+然后在本机浏览器打开：
+
+```text
+http://127.0.0.1:17861
+```
+
+## 开机自启
+
+复制用户级 `systemd` 模板：
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp tools/exp-scheduler/deploy/exp-scheduler.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now exp-scheduler.service
+```
+
+查看状态：
+
+```bash
+systemctl --user status exp-scheduler.service
+journalctl --user -u exp-scheduler.service -f
+```
+
+如果希望用户退出登录后服务仍然保持运行，可以开启 linger：
+
+```bash
+loginctl enable-linger "$USER"
+```
+
+## 页面功能
+- 新建任务：命令、名称、环境模板、工作目录、环境变量、备注
+- 环境配置：保存常用 `venv`、`conda` 或自定义 shell 激活步骤
+- 发现现有环境：扫描当前常见目录和本机 `conda`，一键导入模板
+- 队列管理：删除排队任务、拖拽调整顺序
+- 运行中任务：查看分配 GPU、取消任务、查看日志
+- 历史任务：查看结果、查看日志、把失败/取消/中断任务重新入队
+- 全局控制：暂停调度、恢复调度
+
+## 环境模板怎么用
+
+环境模板由 4 部分组成：
+- `配置名称`
+- `默认工作目录`
+- `激活命令`
+- `默认环境变量`
+
+任务创建时的规则是：
+- 如果选择了环境模板，模板里的默认工作目录会作为任务目录
+- 如果任务表单里又手填了工作目录，任务值优先
+- 模板环境变量会先加载，任务表单里的环境变量会覆盖同名项
+- 启动任务前会先执行模板里的 `激活命令`，再执行任务命令
+
+### venv 示例
+
+环境模板可以这样填：
+
+```text
+配置名称: torch-venv
+默认工作目录: /SSD1/ykw/project-a
+激活命令:
+source /SSD1/ykw/project-a/.venv/bin/activate
+默认环境变量:
+PYTHONUNBUFFERED=1
+HF_HOME=/SSD1/ykw/cache/hf
+```
+
+任务命令里直接填：
+
+```bash
+python train.py --model llama --bs 8
+```
+
+### 自动导入现有环境
+
+在网页里的“环境配置”区点击“扫描现有环境”后，调度器会：
+- 从 `conda info --json` 读取已有 `conda` 环境
+- 在常见目录里扫描 `.venv`、`venv`、`.env`、`env`
+- 自动生成推荐模板名、激活命令和默认目录
+
+默认 venv 扫描目录通常包括：
+- 当前启动目录
+- 当前启动目录的上一级
+- `HOME`
+- `~/projects`、`~/code`、`~/work` 中存在的目录
+
+扫描结果里可以：
+- “导入模板”：直接创建环境模板
+- “导入并编辑”：先把推荐内容填进表单，再自己补默认变量或备注
+
+如果模板名冲突，导入接口会自动改名，例如 `conda:demo-2`。
+
+### conda 示例
+
+如果要用 `conda activate`，更稳的写法是先显式加载 `conda.sh`：
+
+```text
+配置名称: llm-conda
+默认工作目录: /SSD1/ykw/project-b
+激活命令:
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate llm
+默认环境变量:
+PYTHONUNBUFFERED=1
+WANDB_MODE=offline
+```
+
+如果你更喜欢不用 shell 激活，也可以直接把任务命令写成：
+
+```bash
+conda run -n llm python train.py --config configs/a.yaml
+```
+
+这种情况下环境模板里的 `激活命令` 可以留空，只保留默认目录和环境变量。
+
+## 配置项
+
+默认 `config.toml` 至少包含：
+
+```toml
+host = "127.0.0.1"
+port = 17861
+poll_interval_seconds = 5
+gpu_idle_memory_mb = 2000
+state_dir = "/home/<user>/.local/share/exp-scheduler"
+log_dir = "/home/<user>/.local/share/exp-scheduler/logs"
+```
+
+## 故障排查
+
+`doctor` 提示 `nvidia-smi` 缺失：
+- 确认 NVIDIA 驱动是否安装，且当前用户能执行 `nvidia-smi`
+
+页面打不开：
+- 确认服务已经启动
+- 确认 SSH 隧道仍然存在
+- 确认 `config.toml` 中端口和隧道端口一致
+
+任务一直排队不启动：
+- 看 `/api/gpus` 或页面里的 GPU 卡片，确认显存是否低于阈值
+- 看是否检测到外部进程占用 GPU
+- 看队列是否被手动暂停
+
+环境模板没生效：
+- 先在 shell 里单独执行一遍模板的 `激活命令`
+- `conda activate` 失败时，通常是没有先 `source .../conda.sh`
+- 如果只需要指定解释器，优先考虑直接在任务命令里写绝对路径，如 `/path/to/venv/bin/python`
+
+扫描不到你预期的 venv：
+- 确认该虚拟环境目录名是 `.venv`、`venv`、`.env` 或 `env`
+- 确认它距离扫描根目录不要太深
+- 如果你的项目放在很特殊的位置，先在那个目录下启动 `exp-scheduler serve`，扫描范围会更贴近你的项目树
+
+服务重启后任务变成 `interrupted`：
+- 这是设计行为，避免服务重启后误重复执行
+- 需要的任务可以在历史列表里手动重新入队
+
+日志为空或不完整：
+- 确认任务是否真的开始运行
+- 检查 `log_dir` 是否可写
+- 某些程序本身会缓冲输出，可以在命令里加 `PYTHONUNBUFFERED=1` 或 `python -u`

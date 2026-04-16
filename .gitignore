@@ -3,5 +3,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
 node_modules/
 wait_and_run_logs/

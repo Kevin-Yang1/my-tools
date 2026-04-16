@@ -33,3 +33,9 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Scripts
 - `scripts/wait_and_run.sh`: 等待 GPU 显存低于阈值后执行命令，必要时只对 OOM / 资源类错误重试。
+- `scripts/exp_scheduler.py`: 启动 GPU 实验任务调度器，安装后命令名为 `exp-scheduler`。
+
+## Tools
+- `tools/exp-scheduler/`: FastAPI + SQLite + 原生前端实现的 GPU 实验任务调度器，支持网页管理队列、环境模板复用、从现有 conda/venv 自动导入模板、查看 GPU 状态和实时日志。
+
+详细说明见 [docs/exp-scheduler.md](docs/exp-scheduler.md)。
