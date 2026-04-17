@@ -1,6 +1,6 @@
 # exp-scheduler
 
-`exp-scheduler` 是一个面向单用户实验服务器的 GPU 任务调度器。你把命令加入队列后，它会在检测到空闲 GPU 时自动启动任务，并通过一个只监听 `127.0.0.1` 的网页控制台提供增删改查、拖拽排序、取消任务、日志查看、环境模板复用，以及从现有 `conda` / `venv` 自动导入模板。
+`exp-scheduler` 是一个面向单用户实验服务器的 GPU 任务调度器。你把命令加入队列后，它会在检测到空闲 GPU 时自动启动任务，并通过一个只监听 `127.0.0.1` 的网页控制台提供增删改查、拖拽排序、取消任务、日志查看、环境模板复用、从现有 `conda` / `venv` 自动导入模板，以及按全局策略处理的 OOM / CUDA 资源类错误自动重试。
 
 ## 目录
 - 入口脚本：`scripts/exp_scheduler.py`
@@ -129,6 +129,34 @@ loginctl enable-linger "$USER"
 - 模板环境变量会先加载，任务表单里的环境变量会覆盖同名项
 - 启动任务前会先执行模板里的 `激活命令`，再执行任务命令
 
+## 自动重试
+
+自动重试现在由服务端配置文件统一控制，不再按任务单独设置。修改：
+
+```toml
+auto_retry_max_retries = 0
+auto_retry_delay_seconds = 5
+```
+
+这里的 `auto_retry_max_retries` 指的是：
+- 首次运行失败后，额外允许再次尝试的次数
+- `0` 表示关闭自动重试
+- `1` 表示最多再试 1 次，总共最多跑 2 次
+
+当前实现只会对 OOM / CUDA 资源类错误自动重试，判断逻辑与 [scripts/wait_and_run.sh](/SSD1/ykw/my-tools/scripts/wait_and_run.sh) 对齐，包括：
+- 退出码 `137` / `143`
+- 被信号杀掉的等价场景
+- 日志中匹配 `cuda out of memory`、`failed to allocate`、`resource exhausted`、`oom-kill` 等模式
+
+普通业务失败不会自动重试。
+
+重试调度规则：
+- 任务失败且满足重试条件时，会按设置的延迟重新回到队列头部
+- 重新排队后仍然要等待空闲 GPU
+- 每次尝试会生成独立日志文件，文件名带 `attempt_N`
+- 历史里展示的是最后一次尝试结果
+- 修改 `config.toml` 后需要重启 `exp-scheduler serve` 或 `systemd --user` 服务
+
 ### venv 示例
 
 环境模板可以这样填：
@@ -200,6 +228,8 @@ host = "127.0.0.1"
 port = 17861
 poll_interval_seconds = 5
 gpu_idle_memory_mb = 2000
+auto_retry_max_retries = 0
+auto_retry_delay_seconds = 5
 state_dir = "/home/<user>/.local/share/exp-scheduler"
 log_dir = "/home/<user>/.local/share/exp-scheduler/logs"
 ```
