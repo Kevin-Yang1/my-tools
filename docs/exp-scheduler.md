@@ -2,6 +2,8 @@
 
 `exp-scheduler` 是一个面向单用户实验服务器的 GPU 任务调度器。你把命令加入队列后，它会在检测到空闲 GPU 时自动启动任务，并通过一个只监听 `127.0.0.1` 的网页控制台提供增删改查、拖拽排序、取消任务、日志查看、环境模板复用、从现有 `conda` / `venv` 自动导入模板，以及按全局策略处理的 OOM / CUDA 资源类错误自动重试。
 
+网页头部会显示“当前控制服务器”的名称和 IP，方便你同时管理多台机器时快速区分。
+
 ## 目录
 - 入口脚本：`scripts/exp_scheduler.py`
 - 工具目录：`tools/exp-scheduler/`
@@ -107,6 +109,7 @@ loginctl enable-linger "$USER"
 ```
 
 ## 页面功能
+- 头部标识：显示当前控制服务器名和 IP
 - 新建任务：命令、名称、环境模板、工作目录、环境变量、备注
 - 环境配置：保存常用 `venv`、`conda` 或自定义 shell 激活步骤
 - 发现现有环境：扫描当前常见目录和本机 `conda`，一键导入模板
@@ -219,6 +222,21 @@ conda run -n llm python train.py --config configs/a.yaml
 
 这种情况下环境模板里的 `激活命令` 可以留空，只保留默认目录和环境变量。
 
+## 服务器标识
+
+如果你有多台服务器，建议在每台机器的 `config.toml` 里显式设置：
+
+```toml
+server_name = "lab-gpu-a"
+server_ip = "10.10.0.23"
+```
+
+这两个字段会显示在网页头部，也会在 `doctor` 输出里显示。
+
+如果配置文件里没有这两个字段，调度器会自动使用：
+- 当前机器主机名作为 `server_name`
+- 自动探测到的本机 IPv4 地址作为 `server_ip`
+
 ## 配置项
 
 默认 `config.toml` 至少包含：
@@ -226,6 +244,8 @@ conda run -n llm python train.py --config configs/a.yaml
 ```toml
 host = "127.0.0.1"
 port = 17861
+server_name = "your-hostname"
+server_ip = "your-server-ip"
 poll_interval_seconds = 5
 gpu_idle_memory_mb = 2000
 auto_retry_max_retries = 0
