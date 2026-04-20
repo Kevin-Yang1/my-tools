@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="${SCRIPT_DIR}/scripts"
+TOOLS_SRC_DIR="${SRC_DIR}/tools"
 BIN_DIR="${HOME}/.local/bin"
 
 if [ ! -d "$SRC_DIR" ]; then
@@ -60,16 +61,36 @@ install_aliases() {
 
 installed_any=0
 shopt -s nullglob
+declare -A INSTALLED_COMMAND_SOURCES=()
 
-for src in "$SRC_DIR"/*; do
-  [ -f "$src" ] || continue
-  [ -x "$src" ] || continue
+install_from_dir() {
+  local source_dir="$1"
+  local src
+  local command_name
 
-  command_name="$(command_name_for "$(basename "$src")")"
-  install_wrapper "$command_name" "$src"
-  install_aliases "$command_name" "$src"
-  installed_any=1
-done
+  [ -d "$source_dir" ] || return
+
+  for src in "$source_dir"/*; do
+    [ -f "$src" ] || continue
+    [ -x "$src" ] || continue
+
+    command_name="$(command_name_for "$(basename "$src")")"
+    if [ -n "${INSTALLED_COMMAND_SOURCES[$command_name]:-}" ] && [ "${INSTALLED_COMMAND_SOURCES[$command_name]}" != "$src" ]; then
+      echo "错误: 命令名冲突: $command_name" >&2
+      echo "  已存在来源: ${INSTALLED_COMMAND_SOURCES[$command_name]}" >&2
+      echo "  新来源: $src" >&2
+      exit 1
+    fi
+
+    INSTALLED_COMMAND_SOURCES[$command_name]="$src"
+    install_wrapper "$command_name" "$src"
+    install_aliases "$command_name" "$src"
+    installed_any=1
+  done
+}
+
+install_from_dir "$SRC_DIR"
+install_from_dir "$TOOLS_SRC_DIR"
 
 if [ "$installed_any" -eq 0 ]; then
   echo "错误: 没有发现可安装的可执行脚本" >&2
