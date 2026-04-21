@@ -34,6 +34,7 @@ pip install requests
 
 - 先访问一个外网 HTTP 地址
 - 如果被网络重定向到 portal 登录页，就从最终登录页 URL 中自动提取当前机器对应的 portal host 和 `queryString`
+- 如果先落到一个中间跳转页，脚本会尝试从页面源码中解析真正的 `index.jsp?...` 登录页 URL 再继续
 - 再按登录页公开 JS 的 RSA 逻辑生成 `password`
 
 ## 运行示例
@@ -109,3 +110,13 @@ WantedBy=default.target
   - `publicKeyModulus`
   - `passwordEncrypt`
   - 登录页最终 URL 中的 queryString
+
+## 排障建议
+
+- 如果你像这次一样在新机器上看到“无法从 portal 登录页 URL 中提取 queryString”，先加 `--verbose` 重跑
+- DEBUG 日志现在会额外打印：
+  - 当前响应链
+  - 当前响应 URL
+  - 页面源码里发现的 `index.jsp?...` 线索
+  - 页面内容摘要
+- 如果这些日志里仍然没有出现 `index.jsp?...` 或 `queryString`，说明认证前面还有一层更特殊的 JS 跳转页；这时把那一页的 HTML 保存出来，再继续补解析规则会更稳

@@ -35,7 +35,7 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
 
 import requests
 import urllib3
@@ -86,11 +86,19 @@ class PortalContext:
 def normalize_query_string(value: str) -> str | None:
     if not value:
         return None
-    if "=" in value or "&" in value:
-        return value
-    decoded = unquote(value)
-    if decoded != value and ("=" in decoded or "&" in decoded):
-        return decoded
+
+    candidates = [value]
+    decoded = value
+    for _ in range(2):
+        next_decoded = unquote(decoded)
+        if next_decoded == decoded:
+            break
+        candidates.append(next_decoded)
+        decoded = next_decoded
+
+    for candidate in candidates:
+        if "=" in candidate or "&" in candidate:
+            return candidate
     return value
 
 
@@ -154,6 +162,15 @@ PORTAL_KEYWORDS = [
     "portaluserv2",
     "drcom",
     "srun_portal",
+]
+
+PORTAL_QUERY_KEYS = [
+    "wlanuserip",
+    "wlanacip",
+    "wlanacname",
+    "mac",
+    "ssid",
+    "nasip",
 ]
 
 
@@ -229,6 +246,17 @@ def looks_like_portal_url(url: str) -> bool:
     return "/eportal/" in lowered or "wlanuserip=" in lowered
 
 
+def looks_like_portal_entry_url(url: str) -> bool:
+    parsed = urlparse(url)
+    if not parsed.query:
+        return False
+    path = parsed.path.lower()
+    if not path.endswith("index.jsp"):
+        return False
+    lowered_query = parsed.query.lower()
+    return any(f"{key}=" in lowered_query for key in PORTAL_QUERY_KEYS)
+
+
 def response_looks_like_portal(response: requests.Response) -> bool:
     if looks_like_portal_url(response.url):
         return True
@@ -237,6 +265,66 @@ def response_looks_like_portal(response: requests.Response) -> bool:
         return True
     text = response.text.lower()
     return any(keyword in text for keyword in PORTAL_KEYWORDS)
+
+
+def find_portal_entry_url_in_response(response: requests.Response) -> str | None:
+    for history_response in reversed(response.history):
+        if looks_like_portal_entry_url(history_response.url):
+            return history_response.url
+    if looks_like_portal_entry_url(response.url):
+        return response.url
+
+    text = html.unescape(response.text)
+    absolute_pattern = re.compile(
+        r"""https?://[^\s"'<>\\)]+/eportal/index\.jsp\?[^\s"'<>\\)]+""",
+        re.IGNORECASE,
+    )
+    relative_pattern = re.compile(
+        r"""(?:\./|\.\./|/)?(?:eportal/)?index\.jsp\?[^\s"'<>\\)]+""",
+        re.IGNORECASE,
+    )
+
+    absolute_match = absolute_pattern.search(text)
+    if absolute_match:
+        return absolute_match.group(0)
+
+    relative_match = relative_pattern.search(text)
+    if relative_match:
+        return urljoin(response.url, relative_match.group(0))
+
+    return None
+
+
+def find_query_string_in_text(text: str) -> str | None:
+    text = html.unescape(text)
+    patterns = [
+        re.compile(r"""queryString\s*[:=]\s*["']([^"']+)["']""", re.IGNORECASE),
+        re.compile(r"""index\.jsp\?([^\s"'<>\\)]+)""", re.IGNORECASE),
+        re.compile(
+            r"""((?:wlanuserip|wlanacip|wlanacname|mac|ssid|nasip)=[^\s"'<>\\)]+(?:&[A-Za-z0-9_]+=[^\s"'<>\\)]*)*)""",
+            re.IGNORECASE,
+        ),
+    ]
+    for pattern in patterns:
+        match = pattern.search(text)
+        if not match:
+            continue
+        candidate = normalize_query_string(match.group(1))
+        if candidate and any(f"{key}=" in candidate.lower() for key in PORTAL_QUERY_KEYS):
+            return candidate
+    return None
+
+
+def summarize_response_for_debug(response: requests.Response) -> str:
+    compact_text = re.sub(r"\s+", " ", html.unescape(response.text)).strip()
+    if len(compact_text) > 200:
+        compact_text = compact_text[:200] + "..."
+    return compact_text
+
+
+def format_response_chain(response: requests.Response) -> str:
+    urls = [history_response.url for history_response in response.history] + [response.url]
+    return " -> ".join(urls)
 
 
 def is_online(session: requests.Session, config: Config) -> bool:
@@ -289,6 +377,15 @@ def discover_entry_response(
         verify=False,
         allow_redirects=True,
     )
+    derived_entry_url = find_portal_entry_url_in_response(response)
+    if derived_entry_url and derived_entry_url != response.url:
+        logger.debug("从中间跳转页解析出 portal 登录页 URL: %s", derived_entry_url)
+        return session.get(
+            derived_entry_url,
+            timeout=10,
+            verify=False,
+            allow_redirects=True,
+        )
     return response
 
 
@@ -327,8 +424,18 @@ def fetch_portal_context(
             "未能定位到 portal 登录页。请确保当前网络会重定向到认证页，或显式提供 --portal-entry-url"
         )
     entry_url = response.url
-    raw_query = normalize_query_string(urlparse(entry_url).query) or config.query_string
+    raw_query = (
+        normalize_query_string(urlparse(entry_url).query)
+        or find_query_string_in_text(response.text)
+        or config.query_string
+    )
     if not raw_query:
+        logger.debug("当前响应链: %s", format_response_chain(response))
+        logger.debug("当前响应 URL: %s", response.url)
+        derived_entry_url = find_portal_entry_url_in_response(response)
+        if derived_entry_url:
+            logger.debug("页面源码中发现的 portal 登录页线索: %s", derived_entry_url)
+        logger.debug("页面内容摘要: %s", summarize_response_for_debug(response))
         raise RuntimeError("无法从 portal 登录页 URL 中提取 queryString，请显式提供 CAMPUS_QUERY_STRING")
 
     mac = parse_qs(raw_query).get("mac", [""])[0] or "111111111"
