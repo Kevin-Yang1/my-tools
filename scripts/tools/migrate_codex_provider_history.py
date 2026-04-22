@@ -5,7 +5,7 @@
 - 迁移 Codex 本地历史里 rollout jsonl 与 state sqlite 中的 `model_provider` 字段，
   修复 provider key 变更后旧会话无法按正确 provider bucket 加载的问题。
 - 迁移目标 provider 优先使用 `--target-provider`；未显式指定时，会读取
-  `config.toml` 里的 `model_provider`，只有读取不到时才回退到 `custom`。
+  `config.toml` 里的 `model_provider`，读取不到时默认使用 `openai`。
 - 默认会把 `openai` 一并迁移到目标 provider；如果你想保留 `openai`，需要显式传
   `--keep-provider openai`。
 - 默认只做预览统计，不会写文件；追加 `--apply` 后才会真正改写历史数据。
@@ -75,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--target-provider',
         default=None,
-        help='迁移后的目标 provider key；默认读取 config.toml 的 model_provider，缺失时回退到 custom',
+        help='迁移后的目标 provider key；默认读取 config.toml 的 model_provider，缺失时默认使用 openai',
     )
     parser.add_argument(
         '--keep-provider',
@@ -132,7 +132,7 @@ def resolve_target_provider(cli_target_provider: str | None, config_status: Conf
         return cli_target_provider
     if isinstance(config_status.active_provider, str) and config_status.active_provider.strip():
         return config_status.active_provider
-    return 'custom'
+    return 'openai'
 
 
 def resolve_sqlite_home_env() -> Path | None:
