@@ -218,7 +218,10 @@ def rewrite_rollout_file(
 ) -> None:
     original_text = path.read_text(encoding='utf-8')
     newline_at_end = original_text.endswith('\n')
-    original_lines = original_text.splitlines()
+    if newline_at_end:
+        original_lines = original_text[:-1].split('\n')
+    else:
+        original_lines = original_text.split('\n')
     rewritten_lines: list[str] = []
     file_changed = False
 

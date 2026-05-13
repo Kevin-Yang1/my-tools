@@ -77,7 +77,7 @@ python3 scripts/tools/migrate_codex_provider_history.py --apply
 
 1. 显式传入的 `--target-provider`
 2. `<codex-home>/config.toml` 里的 `model_provider`
-3. 兜底值 `custom`
+3. 兜底值 `openai`
 
 ### rollout 文件
 
@@ -188,7 +188,7 @@ python3 scripts/tools/migrate_codex_provider_history.py \
 ## 失败时常见原因
 
 - `config.toml` 路径不对，或 `--codex-home` 指错了目录
-- `jsonl` 里存在损坏行，导致 JSON 解析失败
+- `jsonl` 里存在真正损坏的 JSON 行，导致 JSON 解析失败
 - SQLite 文件路径不对，或当前用户没有写权限
 - 目标 provider 实际上并不是你想要的 bucket，导致迁移后仍看不到历史
 
