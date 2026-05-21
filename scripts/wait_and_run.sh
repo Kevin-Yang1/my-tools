@@ -133,7 +133,7 @@ is_retryable_oom_error() {
 
   # 2) 根据日志判断是否属于 OOM / CUDA 资源类错误
   if grep -Eiq \
-    "out of memory|cuda out of memory|cublas.*alloc|cuda error: out of memory|failed to allocate|cuda runtime error|memory allocation|std::bad_alloc|nccl.*unhandled system error|device-side assert triggered|resource exhausted|cuda error.*launch out of resources" \
+    "out of memory|cuda out of memory|cublas.*alloc|cuda error: out of memory|failed to allocate|cuda runtime error|memory allocation|std::bad_alloc|nccl.*unhandled system error|device-side assert triggered|resource exhausted|cuda error.*launch out of resources|cuda-capable device.*busy or unavailable|cudaerrordevicesunavailable" \
     "$logfile"; then
     return 0
   fi
