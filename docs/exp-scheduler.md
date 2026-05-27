@@ -163,6 +163,50 @@ loginctl enable-linger "$USER"
 - 如果启用“空闲自动恢复”，被全局关闭的 GPU 在没有外部进程、没有调度器任务占用且显存低于默认空闲阈值后，会按设定时长自动恢复到白名单
 - 任务完成后、以及全局 GPU 白名单变更后，调度器会立即尝试启动下一个符合条件的任务，不用等下一轮轮询
 
+## Agent 临时占用 GPU
+
+如果另一个 agent 需要临时跑测试，推荐使用 GPU lease 接口，而不是全局暂停队列。lease 只会让指定 GPU 暂时不参与调度，其他 GPU 上的任务和队列继续正常运行。
+
+创建 lease：
+
+```bash
+curl -X POST http://127.0.0.1:17861/api/agent/gpu-leases \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "owner": "codex-test",
+    "gpu_ids": [2],
+    "ttl_seconds": 3600,
+    "stop_running": true,
+    "notes": "temporary test run"
+  }'
+```
+
+字段含义：
+- `owner`：调用方名称，便于排查是谁占用了 GPU
+- `gpu_ids`：要临时占用的 GPU 编号
+- `ttl_seconds`：自动过期时间，默认 3600 秒；如果传 `null`，lease 不会自动过期，需要手动释放
+- `stop_running`：是否中断这些 GPU 上由调度器启动的运行中任务，并放回原队列队首
+- `notes`：可选备注
+
+查看 lease 和有效 GPU 白名单：
+
+```bash
+curl http://127.0.0.1:17861/api/settings
+curl http://127.0.0.1:17861/api/agent/gpu-leases
+```
+
+释放 lease：
+
+```bash
+curl -X DELETE http://127.0.0.1:17861/api/agent/gpu-leases/<lease_id>
+```
+
+行为细节：
+- lease 不会改写用户设置的全局 GPU 白名单；调度器内部按“用户白名单减去活跃 lease”计算有效可调度 GPU
+- 被 lease 占用的 GPU 不会被“空闲自动恢复”提前加回调度池
+- `stop_running: true` 不是进程级暂停恢复，而是终止对应 GPU 上的 scheduler 任务并回队首；任务再次运行时会从头启动
+- agent 最好总是设置有限 `ttl_seconds`，防止异常退出后 GPU 长期留在 lease 状态
+
 ## 调控器与连续空闲检测
 
 默认策略是 `poll_interval_seconds = 5` 且 `gpu_idle_required_checks = 6`，也就是外部释放或未知占用状态下，需要连续约 30 秒满足可启动条件，调度器才会启动下一个任务。调度器自己管理的任务结束后，只要下一次探测确认对应 GPU 可用，就会快速接续下一个任务。
