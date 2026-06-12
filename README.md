@@ -34,13 +34,12 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Scripts
 - `scripts/wait_and_run.sh`: 等待 GPU 显存低于阈值后执行命令，必要时只对 OOM / 资源类错误重试。
-- `scripts/exp_scheduler.py`: 启动 GPU 实验任务调度器，安装后命令名为 `exp-scheduler`。
 
 ## Script Tools
 - `scripts/tools/migrate_codex_provider_history.py`: 迁移 Codex 本地历史里的 `model_provider` 字段，修复 provider key 变更后旧会话无法正确加载的问题。安装后命令名为 `migrate-codex-provider-history`。
 
 ## Tools
-- `tools/exp-scheduler/`: FastAPI + SQLite + 原生前端实现的 GPU 实验任务调度器，支持网页管理队列、环境模板复用、从现有 conda/venv 自动导入模板、查看 GPU 状态和实时日志。
+- `exp-scheduler`: GPU 实验任务调度器已经拆到独立仓库 `/SSD1/ykw/exp-scheduler`，本仓库只保留引用说明，不再保存源码副本。
 
 详细说明见：
 
