@@ -10,9 +10,10 @@
 
 ## 安装
 
-把 `scripts/` 和 `scripts/tools/` 里所有可执行脚本安装成命令：
+先拉取 submodule，再把 `scripts/` 和 `scripts/tools/` 里所有可执行脚本安装成命令：
 
 ```bash
+git submodule update --init --recursive
 ./install.sh
 ```
 
@@ -34,12 +35,13 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Scripts
 - `scripts/wait_and_run.sh`: 等待 GPU 显存低于阈值后执行命令，必要时只对 OOM / 资源类错误重试。
+- `scripts/exp_scheduler.py`: 启动 GPU 实验任务调度器，安装后命令名为 `exp-scheduler`。实际源码来自 `tools/exp-scheduler` submodule。
 
 ## Script Tools
 - `scripts/tools/migrate_codex_provider_history.py`: 迁移 Codex 本地历史里的 `model_provider` 字段，修复 provider key 变更后旧会话无法正确加载的问题。安装后命令名为 `migrate-codex-provider-history`。
 
 ## Tools
-- `exp-scheduler`: GPU 实验任务调度器已经拆到独立仓库 `/SSD1/ykw/exp-scheduler`，本仓库只保留引用说明，不再保存源码副本。
+- `tools/exp-scheduler/`: GPU 实验任务调度器，源码仓库为 `git@github.com:Kevin-Yang1/exp-scheduler.git`，本仓库通过 submodule 记录当前使用的提交。
 
 详细说明见：
 
