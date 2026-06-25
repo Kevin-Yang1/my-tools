@@ -85,6 +85,12 @@ cd <path-to-my-tools>\tools\hust-autologin
 powershell -ExecutionPolicy Bypass -File .\setup\windows_autostart.ps1 -RunNow
 ```
 
+Windows 一键配置后的计划任务会把运行日志写到：
+
+```text
+<path-to-my-tools>\tools\hust-autologin\logs\hust_autologin.log
+```
+
 Linux：
 
 ```bash
