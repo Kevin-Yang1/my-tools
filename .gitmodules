@@ -1,3 +1,6 @@
 [submodule "tools/exp-scheduler"]
 	path = tools/exp-scheduler
 	url = git@github.com:Kevin-Yang1/exp-scheduler.git
+[submodule "tools/hust-autologin"]
+	path = tools/hust-autologin
+	url = https://github.com/Kevin-Yang1/hust-autologin.git

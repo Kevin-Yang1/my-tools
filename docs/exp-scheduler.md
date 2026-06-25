@@ -14,21 +14,21 @@ git@github.com:Kevin-Yang1/exp-scheduler.git
 tools/exp-scheduler
 ```
 
-`my-tools` 不保存第二份源码，只保存 submodule 的 commit 指针。之后改代码、跑测试、构建前端、安装 skill，都应该在 `tools/exp-scheduler` 或独立仓库 `/SSD1/ykw/exp-scheduler` 里完成。
+`my-tools` 不保存第二份源码，只保存 submodule 的 commit 指针。之后改代码、跑测试、构建前端、安装 skill，都应该在 `tools/exp-scheduler` 或独立仓库 `<path-to-exp-scheduler>` 里完成。
 
 ## 安装与运行
 
 第一次 clone `my-tools` 后先拉取 submodule：
 
 ```bash
-cd /SSD1/ykw/my-tools
+cd <path-to-my-tools>
 git submodule update --init --recursive
 ```
 
 给 `exp-scheduler` 安装运行依赖：
 
 ```bash
-cd /SSD1/ykw/my-tools/tools/exp-scheduler
+cd <path-to-my-tools>/tools/exp-scheduler
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
@@ -37,18 +37,18 @@ pip install -e ".[dev]"
 回到 `my-tools`，安装命令 wrapper：
 
 ```bash
-cd /SSD1/ykw/my-tools
+cd <path-to-my-tools>
 ./install.sh
 ```
 
 这些命令分别做什么：
 
 - `git submodule update --init --recursive`：按 `.gitmodules` 里的配置拉取 `tools/exp-scheduler`。`my-tools` 只保存 submodule 指针，普通 clone 后这个目录可能还没有实际源码；这条命令会把 `git@github.com:Kevin-Yang1/exp-scheduler.git` 的对应 commit 拉下来。
-- `cd /SSD1/ykw/my-tools/tools/exp-scheduler`：进入 `exp-scheduler` 的真实源码目录。后端、前端、测试、systemd 模板和 skill 都在这里。
+- `cd <path-to-my-tools>/tools/exp-scheduler`：进入 `exp-scheduler` 的真实源码目录。后端、前端、测试、systemd 模板和 skill 都在这里。
 - `python3 -m venv .venv`：在 submodule 里创建独立 Python 虚拟环境，路径是 `tools/exp-scheduler/.venv`。这样调度器依赖不会污染系统 Python，也不依赖 `my-tools` 根目录环境。
 - `source .venv/bin/activate`：激活这个虚拟环境，让当前 shell 优先使用 `.venv/bin/python` 和 `.venv/bin/pip`。
 - `pip install -e ".[dev]"`：以 editable 模式安装当前项目，并安装开发依赖。`-e` 表示代码仍然使用当前源码目录，改后端源码后不用重新安装；`[dev]` 会额外安装测试依赖，例如 `pytest` 和 `httpx`。只运行服务时也可以用 `pip install -e .`。
-- `cd /SSD1/ykw/my-tools`：回到 `my-tools` 仓库根目录，准备运行当前仓库的安装脚本。
+- `cd <path-to-my-tools>`：回到 `my-tools` 仓库根目录，准备运行当前仓库的安装脚本。
 - `./install.sh`：把 `scripts/` 和 `scripts/tools/` 下的可执行脚本安装到 `~/.local/bin`。其中 `scripts/exp_scheduler.py` 会被安装成 `~/.local/bin/exp-scheduler`。
 
 最终调用链是：
@@ -56,8 +56,8 @@ cd /SSD1/ykw/my-tools
 ```text
 exp-scheduler
 -> ~/.local/bin/exp-scheduler
--> /SSD1/ykw/my-tools/scripts/exp_scheduler.py
--> /SSD1/ykw/my-tools/tools/exp-scheduler/.venv/bin/exp-scheduler
+-> <path-to-my-tools>/scripts/exp_scheduler.py
+-> <path-to-my-tools>/tools/exp-scheduler/.venv/bin/exp-scheduler
 -> exp_scheduler_app.cli
 ```
 
@@ -72,7 +72,7 @@ exp-scheduler serve
 如果不想安装到 `~/.local/bin`，也可以直接运行：
 
 ```bash
-cd /SSD1/ykw/my-tools
+cd <path-to-my-tools>
 ./scripts/exp_scheduler.py doctor
 ./scripts/exp_scheduler.py serve
 ```
@@ -105,18 +105,18 @@ http://127.0.0.1:17861
 更新 submodule 指针的常用流程：
 
 ```bash
-cd /SSD1/ykw/my-tools/tools/exp-scheduler
+cd <path-to-my-tools>/tools/exp-scheduler
 git pull
 
-cd /SSD1/ykw/my-tools
+cd <path-to-my-tools>
 git add tools/exp-scheduler
 git commit -m "chore: 更新 exp-scheduler submodule"
 ```
 
 ## 常用位置
 
-- submodule README：`/SSD1/ykw/my-tools/tools/exp-scheduler/README.md`
-- Python 后端：`/SSD1/ykw/my-tools/tools/exp-scheduler/src/exp_scheduler_app/`
-- 前端源码：`/SSD1/ykw/my-tools/tools/exp-scheduler/frontend/`
-- systemd 模板：`/SSD1/ykw/my-tools/tools/exp-scheduler/deploy/exp-scheduler.service`
-- Codex skill：`/SSD1/ykw/my-tools/tools/exp-scheduler/skills/exp-scheduler-gpu-lease/`
+- submodule README：`<path-to-my-tools>/tools/exp-scheduler/README.md`
+- Python 后端：`<path-to-my-tools>/tools/exp-scheduler/src/exp_scheduler_app/`
+- 前端源码：`<path-to-my-tools>/tools/exp-scheduler/frontend/`
+- systemd 模板：`<path-to-my-tools>/tools/exp-scheduler/deploy/exp-scheduler.service`
+- Codex skill：`<path-to-my-tools>/tools/exp-scheduler/skills/exp-scheduler-gpu-lease/`

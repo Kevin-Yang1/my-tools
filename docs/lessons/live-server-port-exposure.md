@@ -52,7 +52,7 @@ const host = (Config_1.Config.getLocalIp ? require('ips')().local : Config_1.Con
 
 对应文件是：
 
-- `/home/ykw/.vscode-server/extensions/ritwickdey.liveserver-5.7.10/out/src/Helper.js`
+- `<vscode-server-extension-path>/ritwickdey.liveserver-5.7.10/out/src/Helper.js`
 
 ## 经验教训
 
