@@ -98,6 +98,12 @@ cd <path-to-my-tools>/tools/hust-autologin
 bash setup/linux_autostart.sh --run-now
 ```
 
+Linux 一键配置后的 systemd user service 会把运行日志写到：
+
+```text
+<path-to-my-tools>/tools/hust-autologin/logs/hust_autologin.log
+```
+
 Linux 的一键脚本创建的是 systemd user service。若要用户未登录时也随系统启动，需要额外启用：
 
 ```bash
