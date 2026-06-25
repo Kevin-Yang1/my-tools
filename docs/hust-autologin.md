@@ -72,6 +72,14 @@ python HUSTAutologin.py --once
 
 Windows：
 
+最简单方式是双击：
+
+```text
+<path-to-my-tools>\tools\hust-autologin\setup\windows_autostart.cmd
+```
+
+也可以手动运行：
+
 ```powershell
 cd <path-to-my-tools>\tools\hust-autologin
 powershell -ExecutionPolicy Bypass -File .\setup\windows_autostart.ps1 -RunNow
